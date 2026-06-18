@@ -617,8 +617,16 @@ html, body {
           </div>
           <div class="export-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
         </button>
-        <button class="export-btn" onclick="importJSON()">
-          <div class="export-icon" style="background:#F0FDF4;color:#166534">
+        <button class="export-btn" onclick="syncFromSheet()">
+          <div class="export-icon" style="background:#E1F5EE;color:#0D9488">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          </div>
+          <div>
+            <div class="export-title">Sync from Google Sheets</div>
+            <div class="export-sub">Pull latest data from your sheet</div>
+          </div>
+          <div class="export-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <div>
@@ -670,14 +678,19 @@ html, body {
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Config ──
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwrnrtai1BJICN3Iyg4BZPpoJ55nZ6mpWXeZNCPq2ibIJ-IqvH7d7Aj0ecIQQl0kDie/exec';
+
 // ── State ──
 let entries = JSON.parse(localStorage.getItem('expenses') || '[]');
 let currentFile = null;
 let deferredInstall = null;
+let syncing = false;
 
 // ── Init ──
 document.getElementById('fDate').value = today();
 updateHeader();
+syncFromSheet();
 
 // ── PWA Install ──
 window.addEventListener('beforeinstallprompt', e => {
@@ -740,7 +753,7 @@ function clearFile() {
 }
 
 // ── Save entry ──
-function saveEntry() {
+async function saveEntry() {
   const date = document.getElementById('fDate').value;
   const vendor = document.getElementById('fVendor').value.trim();
   const desc = document.getElementById('fDesc').value.trim();
@@ -768,8 +781,60 @@ function saveEntry() {
   entries.unshift(entry);
   save();
   clearForm();
-  toast('✓ Expense saved!');
   updateHeader();
+
+  // Sync to Google Sheets
+  toast('⏳ Saving to Google Sheets…');
+  try {
+    const res = await fetch(SHEET_URL, {
+      method: 'POST',
+      body: JSON.stringify(entry)
+    });
+    const json = await res.json();
+    if (json.status === 'ok') {
+      toast('✓ Saved to Google Sheets!');
+    } else {
+      toast('Saved locally — sheet sync failed', true);
+    }
+  } catch {
+    toast('Saved locally — check your connection', true);
+  }
+}
+
+// ── Sync from Google Sheets on load ──
+async function syncFromSheet() {
+  try {
+    const res = await fetch(SHEET_URL);
+    const json = await res.json();
+    if (!json.rows || !json.rows.length) return;
+
+    // Merge sheet rows into local entries (sheet is source of truth)
+    const sheetEntries = json.rows.map((r, i) => ({
+      id: r['Date'] + '_' + i,
+      date: r['Date'] || '',
+      vendor: r['Vendor'] || '',
+      desc: r['Description'] || '',
+      category: r['Category'] || 'Other',
+      amount: parseFloat(r['Amount']) || 0,
+      currency: r['Currency'] || 'USD',
+      paymentMethod: r['Payment Method'] || '',
+      taxDeductible: r['Tax Deductible'] || '',
+      receiptAttached: r['Receipt Attached'] || 'No',
+      receiptFile: r['Receipt File'] || '',
+      project: r['Project'] || '',
+      notes: r['Notes'] || ''
+    })).filter(e => e.vendor);
+
+    if (sheetEntries.length > 0) {
+      entries = sheetEntries.reverse();
+      save();
+      updateHeader();
+      document.getElementById('headerSub').textContent = `Synced from Google Sheets ✓`;
+      setTimeout(() => updateHeader(), 3000);
+    }
+  } catch {
+    // Offline or error — use local data silently
+  }
 }
 
 function clearForm() {
