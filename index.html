@@ -422,6 +422,45 @@ html, body {
   color: var(--gray800);
 }
 .search-bar:focus { border-color: var(--teal); background-color: var(--white); }
+
+/* ── Mode switcher ── */
+.mode-switch {
+  display: flex;
+  background: var(--gray100);
+  border-radius: 12px;
+  padding: 4px;
+  margin: 12px 16px 0;
+  gap: 4px;
+}
+.mode-btn {
+  flex: 1;
+  text-align: center;
+  padding: 9px 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--gray600);
+  transition: all .15s;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mode-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mode-btn.active { background: var(--white); color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.mode-btn.active.income { color: #16A34A; }
+
+/* ── Income-specific badges ── */
+.badge-paid { background: #D1FAE5; color: #166534; }
+.badge-unpaid { background: var(--amber-light); color: var(--amber); }
+.badge-overdue { background: var(--red-light); color: var(--red); }
+.badge-partial { background: #EEF2FF; color: #4F46E5; }
+
+.kpi-card.green { background: #16A34A; color: white; }
+.kpi-card.green .kpi-num { color: white; }
+.kpi-card.green .kpi-label { color: rgba(255,255,255,0.7); }
 </style>
 </head>
 <body>
@@ -430,10 +469,22 @@ html, body {
   <!-- Header -->
   <div class="header">
     <div>
-      <div class="header-title">Expense Tracker</div>
+      <div class="header-title" id="headerTitle">Expense Tracker</div>
       <div class="header-sub" id="headerSub">Ready to log</div>
     </div>
     <div class="header-badge" id="headerBadge">0</div>
+  </div>
+
+  <!-- Mode switcher -->
+  <div class="mode-switch">
+    <div class="mode-btn active" id="mode-expense" onclick="switchMode('expense')">
+      <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Expenses
+    </div>
+    <div class="mode-btn income" id="mode-income" onclick="switchMode('income')">
+      <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Income
+    </div>
   </div>
 
   <!-- Content -->
@@ -449,101 +500,173 @@ html, body {
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Receipt photo</div>
-        <div class="upload-zone" id="dropzone">
-          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <p>Tap to take a photo or upload receipt</p>
-          <small>JPEG, PNG, PDF supported</small>
-          <input type="file" accept="image/*,application/pdf" capture="environment" id="receiptInput" onchange="handleFile(this)">
+      <!-- EXPENSE FORM -->
+      <div id="expenseForm">
+        <div class="card">
+          <div class="card-title">Receipt photo</div>
+          <div class="upload-zone" id="dropzone">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <p>Tap to take a photo or upload receipt</p>
+            <small>JPEG, PNG, PDF supported</small>
+            <input type="file" accept="image/*,application/pdf" capture="environment" id="receiptInput" onchange="handleFile(this)">
+          </div>
+          <img id="previewImg" class="preview-img" style="display:none" alt="Receipt preview">
+          <div id="fileChip" class="file-chip" style="display:none">
+            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            <span id="fileChipText"></span>
+            <button onclick="clearFile()" style="background:none;border:none;cursor:pointer;color:inherit;padding:0;display:flex">
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
-        <img id="previewImg" class="preview-img" style="display:none" alt="Receipt preview">
-        <div id="fileChip" class="file-chip" style="display:none">
-          <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-          <span id="fileChipText"></span>
-          <button onclick="clearFile()" style="background:none;border:none;cursor:pointer;color:inherit;padding:0;display:flex">
-            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+
+        <div class="card">
+          <div class="card-title">Expense details</div>
+          <div class="grid2">
+            <div class="field">
+              <label>Date *</label>
+              <input type="date" id="fDate">
+            </div>
+            <div class="field">
+              <label>Amount *</label>
+              <input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+            </div>
+          </div>
+          <div class="field">
+            <label>Vendor / Payee *</label>
+            <input type="text" id="fVendor" placeholder="e.g. Office Depot, Uber, AWS" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Description *</label>
+            <textarea id="fDesc" placeholder="What was this expense for?"></textarea>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label>Category</label>
+              <select id="fCat">
+                <option value="Other">— select —</option>
+                <option>Office Supplies</option>
+                <option>Travel</option>
+                <option>Meals &amp; Entertainment</option>
+                <option>Software / SaaS</option>
+                <option>Professional Services</option>
+                <option>Utilities</option>
+                <option>Marketing</option>
+                <option>Equipment</option>
+                <option>Training</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Currency</label>
+              <select id="fCurrency">
+                <option>USD</option><option>EUR</option><option>GBP</option>
+                <option>TRY</option><option>CAD</option><option>AUD</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label>Payment method</label>
+              <select id="fPay">
+                <option value="">— select —</option>
+                <option>Credit Card</option><option>Debit Card</option>
+                <option>Company Card</option><option>Cash</option>
+                <option>Bank Transfer</option><option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tax deductible?</label>
+              <select id="fTax">
+                <option value="">— select —</option>
+                <option>Yes</option><option>No</option>
+                <option>50%</option><option>Partial</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Project / Client</label>
+            <input type="text" id="fProject" placeholder="Optional" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <input type="text" id="fNotes" placeholder="Optional" autocomplete="off">
+          </div>
+          <button class="btn btn-primary" onclick="saveEntry()" style="margin-bottom:10px">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Save expense
           </button>
+          <button class="btn btn-ghost" onclick="clearForm()">Clear form</button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Expense details</div>
-        <div class="grid2">
-          <div class="field">
-            <label>Date *</label>
-            <input type="date" id="fDate">
+      <!-- INCOME FORM -->
+      <div id="incomeForm" style="display:none">
+        <div class="card">
+          <div class="card-title">Invoice file</div>
+          <div class="upload-zone" id="dropzoneIncome">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <p>Tap to take a photo or upload invoice</p>
+            <small>JPEG, PNG, PDF supported</small>
+            <input type="file" accept="image/*,application/pdf" capture="environment" id="invoiceInput" onchange="handleInvoiceFile(this)">
           </div>
-          <div class="field">
-            <label>Amount *</label>
-            <input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
-          </div>
-        </div>
-        <div class="field">
-          <label>Vendor / Payee *</label>
-          <input type="text" id="fVendor" placeholder="e.g. Office Depot, Uber, AWS" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Description *</label>
-          <textarea id="fDesc" placeholder="What was this expense for?"></textarea>
-        </div>
-        <div class="grid2">
-          <div class="field">
-            <label>Category</label>
-            <select id="fCat">
-              <option value="Other">— select —</option>
-              <option>Office Supplies</option>
-              <option>Travel</option>
-              <option>Meals &amp; Entertainment</option>
-              <option>Software / SaaS</option>
-              <option>Professional Services</option>
-              <option>Utilities</option>
-              <option>Marketing</option>
-              <option>Equipment</option>
-              <option>Training</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Currency</label>
-            <select id="fCurrency">
-              <option>USD</option><option>EUR</option><option>GBP</option>
-              <option>TRY</option><option>CAD</option><option>AUD</option><option>Other</option>
-            </select>
+          <img id="previewImgIncome" class="preview-img" style="display:none" alt="Invoice preview">
+          <div id="fileChipIncome" class="file-chip" style="display:none">
+            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;flex-shrink:0" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            <span id="fileChipIncomeText"></span>
+            <button onclick="clearInvoiceFile()" style="background:none;border:none;cursor:pointer;color:inherit;padding:0;display:flex">
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
-        <div class="grid2">
+
+        <div class="card">
+          <div class="card-title">Invoice details</div>
+          <div class="grid2">
+            <div class="field">
+              <label>Date *</label>
+              <input type="date" id="iDate">
+            </div>
+            <div class="field">
+              <label>Amount *</label>
+              <input type="number" id="iAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+            </div>
+          </div>
           <div class="field">
-            <label>Payment method</label>
-            <select id="fPay">
+            <label>Client *</label>
+            <input type="text" id="iClient" placeholder="e.g. Acme Corp" autocomplete="off">
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label>Invoice #</label>
+              <input type="text" id="iInvoiceNum" placeholder="e.g. INV-1001" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Currency</label>
+              <select id="iCurrency">
+                <option>USD</option><option>EUR</option><option>GBP</option>
+                <option>TRY</option><option>CAD</option><option>AUD</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select id="iStatus">
               <option value="">— select —</option>
-              <option>Credit Card</option><option>Debit Card</option>
-              <option>Company Card</option><option>Cash</option>
-              <option>Bank Transfer</option><option>Other</option>
+              <option>Paid</option><option>Unpaid</option>
+              <option>Overdue</option><option>Partial</option>
             </select>
           </div>
           <div class="field">
-            <label>Tax deductible?</label>
-            <select id="fTax">
-              <option value="">— select —</option>
-              <option>Yes</option><option>No</option>
-              <option>50%</option><option>Partial</option>
-            </select>
+            <label>Notes</label>
+            <input type="text" id="iNotes" placeholder="Optional" autocomplete="off">
           </div>
+          <button class="btn btn-primary" onclick="saveIncomeEntry()" style="margin-bottom:10px;background:#16A34A">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Save income
+          </button>
+          <button class="btn btn-ghost" onclick="clearIncomeForm()">Clear form</button>
         </div>
-        <div class="field">
-          <label>Project / Client</label>
-          <input type="text" id="fProject" placeholder="Optional" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Notes</label>
-          <input type="text" id="fNotes" placeholder="Optional" autocomplete="off">
-        </div>
-        <button class="btn btn-primary" onclick="saveEntry()" style="margin-bottom:10px">
-          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-          Save expense
-        </button>
-        <button class="btn btn-ghost" onclick="clearForm()">Clear form</button>
       </div>
     </div>
 
@@ -561,24 +684,51 @@ html, body {
 
     <!-- DASHBOARD PANEL -->
     <div class="panel" id="panel-dashboard">
-      <div class="kpi-grid" id="kpiGrid">
-        <div class="kpi-card wide">
-          <div class="kpi-num" id="kpiTotal">$0.00</div>
-          <div class="kpi-label">Total expenses</div>
+      <!-- Expense mode dashboard -->
+      <div id="dashboardExpense">
+        <div class="kpi-grid" id="kpiGrid">
+          <div class="kpi-card wide">
+            <div class="kpi-num" id="kpiTotal">$0.00</div>
+            <div class="kpi-label">Total expenses</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-num" id="kpiCount">0</div>
+            <div class="kpi-label">Entries logged</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-num" id="kpiReceipts">0</div>
+            <div class="kpi-label">Receipts attached</div>
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-num" id="kpiCount">0</div>
-          <div class="kpi-label">Entries logged</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-num" id="kpiReceipts">0</div>
-          <div class="kpi-label">Receipts attached</div>
+        <div class="card">
+          <div class="card-title">Spend by category</div>
+          <div id="catBars">
+            <div style="color:var(--gray400);font-size:14px;text-align:center;padding:24px">No data yet</div>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">Spend by category</div>
-        <div id="catBars">
-          <div style="color:var(--gray400);font-size:14px;text-align:center;padding:24px">No data yet</div>
+
+      <!-- Income mode dashboard -->
+      <div id="dashboardIncome" style="display:none">
+        <div class="kpi-grid">
+          <div class="kpi-card green wide">
+            <div class="kpi-num" id="kpiIncomeTotal">$0.00</div>
+            <div class="kpi-label">Total income</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-num" id="kpiIncomeCount">0</div>
+            <div class="kpi-label">Invoices logged</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-num" id="kpiIncomeUnpaid">0</div>
+            <div class="kpi-label">Unpaid / overdue</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Income by status</div>
+          <div id="statusBars">
+            <div style="color:var(--gray400);font-size:14px;text-align:center;padding:24px">No data yet</div>
+          </div>
         </div>
       </div>
     </div>
@@ -603,7 +753,7 @@ html, body {
           </div>
           <div>
             <div class="export-title">Copy for spreadsheet</div>
-            <div class="export-sub">Paste into Excel row 5, Expense Log sheet</div>
+            <div class="export-sub">Paste into the matching sheet, row 4</div>
           </div>
           <div class="export-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
         </button>
@@ -627,6 +777,8 @@ html, body {
           </div>
           <div class="export-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
         </button>
+        <button class="export-btn" onclick="importJSON()">
+          <div class="export-icon" style="background:#F0FDF4;color:#166534">
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <div>
@@ -637,6 +789,7 @@ html, body {
         </button>
         <input type="file" id="importInput" accept=".json" style="display:none" onchange="handleImport(this)">
       </div>
+
 
       <div class="card">
         <div class="card-title">How to link to Excel</div>
@@ -682,15 +835,21 @@ html, body {
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxGKrWUnGelPMwo1_9KZ5Jsear61IHbgkx5sThBrIyQZJLQyHLTDRJo7TBFkuWt-GG4/exec';
 
 // ── State ──
+let currentMode = 'expense'; // 'expense' | 'income'
 let entries = JSON.parse(localStorage.getItem('expenses') || '[]');
+let incomeEntries = JSON.parse(localStorage.getItem('income') || '[]');
 let currentFile = null;
+let currentFileObj = null;
+let currentInvoiceFile = null;
+let currentInvoiceFileObj = null;
 let deferredInstall = null;
-let syncing = false;
 
 // ── Init ──
 document.getElementById('fDate').value = today();
+document.getElementById('iDate').value = today();
 updateHeader();
 syncFromSheet();
+syncIncomeFromSheet();
 
 // ── PWA Install ──
 window.addEventListener('beforeinstallprompt', e => {
@@ -715,6 +874,24 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
+// ── Mode switch (Expense / Income) ──
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-expense').classList.toggle('active', mode === 'expense');
+  document.getElementById('mode-income').classList.toggle('active', mode === 'income');
+  document.getElementById('expenseForm').style.display = mode === 'expense' ? 'block' : 'none';
+  document.getElementById('incomeForm').style.display = mode === 'income' ? 'block' : 'none';
+  document.getElementById('dashboardExpense').style.display = mode === 'expense' ? 'block' : 'none';
+  document.getElementById('dashboardIncome').style.display = mode === 'income' ? 'block' : 'none';
+
+  document.getElementById('headerTitle').textContent = mode === 'expense' ? 'Expense Tracker' : 'Income Tracker';
+  document.getElementById('searchInput').placeholder = mode === 'expense' ? 'Search expenses…' : 'Search invoices…';
+
+  updateHeader();
+  renderEntries();
+  renderDashboard();
+}
+
 // ── Tabs ──
 function switchTab(name) {
   ['log','entries','dashboard','export'].forEach(t => {
@@ -726,9 +903,7 @@ function switchTab(name) {
   if (name==='entries') renderEntries();
 }
 
-// ── File handling ──
-let currentFileObj = null;
-
+// ── File handling: Expense receipts ──
 function handleFile(input) {
   const f = input.files[0];
   if (!f) return;
@@ -756,20 +931,44 @@ function clearFile() {
   document.getElementById('receiptInput').value = '';
 }
 
+// ── File handling: Income invoices ──
+function handleInvoiceFile(input) {
+  const f = input.files[0];
+  if (!f) return;
+  currentInvoiceFile = f.name;
+  currentInvoiceFileObj = f;
+  document.getElementById('fileChipIncomeText').textContent = f.name;
+  document.getElementById('fileChipIncome').style.display = 'inline-flex';
+  if (f.type.startsWith('image/')) {
+    const r = new FileReader();
+    r.onload = e => {
+      const img = document.getElementById('previewImgIncome');
+      img.src = e.target.result;
+      img.style.display = 'block';
+    };
+    r.readAsDataURL(f);
+  }
+}
+
+function clearInvoiceFile() {
+  currentInvoiceFile = null;
+  currentInvoiceFileObj = null;
+  document.getElementById('fileChipIncome').style.display = 'none';
+  document.getElementById('previewImgIncome').style.display = 'none';
+  document.getElementById('previewImgIncome').src = '';
+  document.getElementById('invoiceInput').value = '';
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      // result is "data:image/jpeg;base64,XXXXX" — strip the prefix
-      const base64 = reader.result.split(',')[1];
-      resolve(base64);
-    };
+    reader.onload = () => resolve(reader.result.split(',')[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-// ── Save entry ──
+// ── Save EXPENSE entry ──
 async function saveEntry() {
   const date = document.getElementById('fDate').value;
   const vendor = document.getElementById('fVendor').value.trim();
@@ -795,7 +994,6 @@ async function saveEntry() {
     notes: document.getElementById('fNotes').value.trim()
   };
 
-  // Capture the file before clearing the form
   const fileToUpload = currentFileObj;
 
   entries.unshift(entry);
@@ -803,8 +1001,7 @@ async function saveEntry() {
   clearForm();
   updateHeader();
 
-  // Build payload — include base64 photo if present
-  const payload = { ...entry };
+  const payload = { type: 'expense', ...entry };
   if (fileToUpload) {
     toast('⏳ Uploading receipt photo…');
     try {
@@ -816,13 +1013,9 @@ async function saveEntry() {
     }
   }
 
-  // Sync to Google Sheets
   toast('⏳ Saving to Google Sheets…');
   try {
-    const res = await fetch(SHEET_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(payload) });
     const json = await res.json();
     if (json.status === 'ok') {
       toast(fileToUpload ? '✓ Saved with receipt photo!' : '✓ Saved to Google Sheets!');
@@ -834,14 +1027,69 @@ async function saveEntry() {
   }
 }
 
-// ── Sync from Google Sheets on load ──
+// ── Save INCOME entry ──
+async function saveIncomeEntry() {
+  const date = document.getElementById('iDate').value;
+  const client = document.getElementById('iClient').value.trim();
+  const amount = parseFloat(document.getElementById('iAmount').value);
+
+  if (!date || !client || isNaN(amount) || amount <= 0) {
+    toast('Please fill in date, client, and amount', true);
+    return;
+  }
+
+  const entry = {
+    id: Date.now(),
+    date, client,
+    invoiceNumber: document.getElementById('iInvoiceNum').value.trim(),
+    amount,
+    currency: document.getElementById('iCurrency').value || 'USD',
+    status: document.getElementById('iStatus').value || 'Unpaid',
+    invoiceAttached: currentInvoiceFile ? 'Yes' : 'No',
+    invoiceFile: currentInvoiceFile || '',
+    notes: document.getElementById('iNotes').value.trim()
+  };
+
+  const fileToUpload = currentInvoiceFileObj;
+
+  incomeEntries.unshift(entry);
+  saveIncome();
+  clearIncomeForm();
+  updateHeader();
+
+  const payload = { type: 'income', ...entry };
+  if (fileToUpload) {
+    toast('⏳ Uploading invoice…');
+    try {
+      payload.invoiceImageBase64 = await fileToBase64(fileToUpload);
+      payload.invoiceFileName = fileToUpload.name;
+      payload.invoiceMimeType = fileToUpload.type || 'image/jpeg';
+    } catch {
+      toast('Invoice upload failed — saving without it', true);
+    }
+  }
+
+  toast('⏳ Saving to Google Sheets…');
+  try {
+    const res = await fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (json.status === 'ok') {
+      toast(fileToUpload ? '✓ Saved with invoice file!' : '✓ Saved to Google Sheets!');
+    } else {
+      toast('Saved locally — sheet sync failed', true);
+    }
+  } catch {
+    toast('Saved locally — check your connection', true);
+  }
+}
+
+// ── Sync EXPENSES from Google Sheets ──
 async function syncFromSheet() {
   try {
-    const res = await fetch(SHEET_URL);
+    const res = await fetch(SHEET_URL + '?type=expense');
     const json = await res.json();
     if (!json.rows || !json.rows.length) return;
 
-    // Merge sheet rows into local entries (sheet is source of truth)
     const sheetEntries = json.rows.map((r, i) => ({
       id: r['Date'] + '_' + i,
       date: r['Date'] || '',
@@ -862,12 +1110,45 @@ async function syncFromSheet() {
       entries = sheetEntries.reverse();
       save();
       updateHeader();
-      document.getElementById('headerSub').textContent = `Synced from Google Sheets ✓`;
-      setTimeout(() => updateHeader(), 3000);
     }
-  } catch {
-    // Offline or error — use local data silently
-  }
+  } catch { /* offline or error — use local data silently */ }
+}
+
+// ── Sync INCOME from Google Sheets ──
+async function syncIncomeFromSheet() {
+  try {
+    const res = await fetch(SHEET_URL + '?type=income');
+    const json = await res.json();
+    if (!json.rows || !json.rows.length) return;
+
+    const sheetEntries = json.rows.map((r, i) => ({
+      id: r['Date'] + '_inc_' + i,
+      date: r['Date'] || '',
+      client: r['Client'] || '',
+      invoiceNumber: r['Invoice #'] || '',
+      amount: parseFloat(r['Amount ($)']) || 0,
+      currency: r['Currency'] || 'USD',
+      status: r['Status'] || 'Unpaid',
+      invoiceAttached: r['Invoice Attached'] || 'No',
+      invoiceFile: r['Invoice File / Link'] || '',
+      notes: r['Notes'] || ''
+    })).filter(e => e.client);
+
+    if (sheetEntries.length > 0) {
+      incomeEntries = sheetEntries.reverse();
+      saveIncome();
+      updateHeader();
+    }
+  } catch { /* offline or error — use local data silently */ }
+}
+
+function syncAll() {
+  toast('⏳ Syncing…');
+  Promise.all([syncFromSheet(), syncIncomeFromSheet()]).then(() => {
+    renderEntries();
+    renderDashboard();
+    toast('✓ Synced!');
+  });
 }
 
 function clearForm() {
@@ -878,8 +1159,21 @@ function clearForm() {
   clearFile();
 }
 
-// ── Render entries ──
+function clearIncomeForm() {
+  ['iClient','iInvoiceNum','iAmount','iNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('iStatus').selectedIndex = 0;
+  document.getElementById('iCurrency').value = 'USD';
+  document.getElementById('iDate').value = today();
+  clearInvoiceFile();
+}
+
+// ── Render entries (mode-aware) ──
 function renderEntries() {
+  if (currentMode === 'expense') renderExpenseEntries();
+  else renderIncomeEntries();
+}
+
+function renderExpenseEntries() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
   const filtered = q
     ? entries.filter(e => [e.vendor,e.desc,e.category,e.project,e.notes].join(' ').toLowerCase().includes(q))
@@ -920,6 +1214,47 @@ function renderEntries() {
   }).join('') + '</div>';
 }
 
+function renderIncomeEntries() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const filtered = q
+    ? incomeEntries.filter(e => [e.client,e.invoiceNumber,e.status,e.notes].join(' ').toLowerCase().includes(q))
+    : incomeEntries;
+
+  const el = document.getElementById('entriesCard');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      <p>${q ? 'No results' : 'No invoices yet'}</p>
+      <small>${q ? 'Try a different search' : 'Log your first one →'}</small>
+    </div>`;
+    return;
+  }
+
+  const statusClass = s => ({Paid:'badge-paid', Unpaid:'badge-unpaid', Overdue:'badge-overdue', Partial:'badge-partial'}[s] || 'badge-pending');
+
+  el.innerHTML = `<div style="padding:0 16px">` + filtered.map(e => {
+    const cur = e.currency==='USD' ? '$' : '';
+    const curSuffix = e.currency!=='USD' ? ' '+e.currency : '';
+    return `<div class="entry-item">
+      <div class="entry-icon" style="background:#D1FAE5">
+        <svg viewBox="0 0 24 24" style="stroke:#16A34A"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </div>
+      <div class="entry-body">
+        <div class="entry-vendor">${esc(e.client)}</div>
+        <div class="entry-desc">${esc(e.invoiceNumber || 'No invoice #')}</div>
+        <span class="badge ${statusClass(e.status)}">${esc(e.status || 'Unpaid')}</span>
+      </div>
+      <div class="entry-right">
+        <div class="entry-amount">${cur}${e.amount.toFixed(2)}${curSuffix}</div>
+        <div class="entry-date">${e.date}</div>
+        <button class="entry-delete" onclick="deleteIncomeEntry(${e.id})" aria-label="Delete">
+          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
 function deleteEntry(id) {
   if (!confirm('Delete this expense?')) return;
   entries = entries.filter(e => e.id !== id);
@@ -929,8 +1264,22 @@ function deleteEntry(id) {
   toast('Deleted');
 }
 
-// ── Dashboard ──
+function deleteIncomeEntry(id) {
+  if (!confirm('Delete this invoice?')) return;
+  incomeEntries = incomeEntries.filter(e => e.id !== id);
+  saveIncome();
+  updateHeader();
+  renderEntries();
+  toast('Deleted');
+}
+
+// ── Dashboard (mode-aware) ──
 function renderDashboard() {
+  if (currentMode === 'expense') renderExpenseDashboard();
+  else renderIncomeDashboard();
+}
+
+function renderExpenseDashboard() {
   const total = entries.reduce((s,e) => s+e.amount, 0);
   const receipts = entries.filter(e => e.receiptAttached==='Yes').length;
   document.getElementById('kpiTotal').textContent = '$'+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -955,27 +1304,74 @@ function renderDashboard() {
   `).join('');
 }
 
-// ── Export ──
+function renderIncomeDashboard() {
+  const total = incomeEntries.reduce((s,e) => s+e.amount, 0);
+  const unpaid = incomeEntries.filter(e => e.status==='Unpaid' || e.status==='Overdue').length;
+  document.getElementById('kpiIncomeTotal').textContent = '$'+total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('kpiIncomeCount').textContent = incomeEntries.length;
+  document.getElementById('kpiIncomeUnpaid').textContent = unpaid;
+
+  const statuses = {};
+  incomeEntries.forEach(e => { const s = e.status || 'Unpaid'; statuses[s] = (statuses[s]||0) + e.amount; });
+  const sorted = Object.entries(statuses).sort((a,b)=>b[1]-a[1]);
+  const max = sorted.length ? sorted[0][1] : 1;
+
+  const el = document.getElementById('statusBars');
+  if (!sorted.length) { el.innerHTML='<div style="color:var(--gray400);font-size:14px;text-align:center;padding:24px">No data yet</div>'; return; }
+  el.innerHTML = sorted.map(([status,val])=>`
+    <div class="cat-row">
+      <div class="cat-header">
+        <span class="cat-name">${esc(status)}</span>
+        <span class="cat-val">$${val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+      </div>
+      <div class="cat-track"><div class="cat-fill" style="width:${Math.round(val/max*100)}%;background:#16A34A"></div></div>
+    </div>
+  `).join('');
+}
+
+// ── Export (mode-aware) ──
 function exportCSV() {
-  if (!entries.length) { toast('No entries to export', true); return; }
-  const hdr = ['Date','Vendor','Description','Category','Amount','Currency','Payment Method','Tax Deductible','Receipt Attached','Receipt File','Project','Notes'];
-  const rows = entries.map(e => [e.date,e.vendor,e.desc,e.category,e.amount,e.currency,e.paymentMethod,e.taxDeductible,e.receiptAttached,e.receiptFile,e.project,e.notes].map(v=>'"'+(v+'').replace(/"/g,'""')+'"').join(','));
-  download('expenses_'+dateStr()+'.csv','text/csv',[hdr.join(','),...rows].join('\n'));
-  toast('CSV downloaded!');
+  if (currentMode === 'expense') {
+    if (!entries.length) { toast('No entries to export', true); return; }
+    const hdr = ['Date','Vendor','Description','Category','Amount','Currency','Payment Method','Tax Deductible','Receipt Attached','Receipt File','Project','Notes'];
+    const rows = entries.map(e => [e.date,e.vendor,e.desc,e.category,e.amount,e.currency,e.paymentMethod,e.taxDeductible,e.receiptAttached,e.receiptFile,e.project,e.notes].map(v=>'"'+(v+'').replace(/"/g,'""')+'"').join(','));
+    download('expenses_'+dateStr()+'.csv','text/csv',[hdr.join(','),...rows].join('\n'));
+    toast('CSV downloaded!');
+  } else {
+    if (!incomeEntries.length) { toast('No invoices to export', true); return; }
+    const hdr = ['Date','Client','Invoice #','Amount','Currency','Status','Invoice Attached','Invoice File','Notes'];
+    const rows = incomeEntries.map(e => [e.date,e.client,e.invoiceNumber,e.amount,e.currency,e.status,e.invoiceAttached,e.invoiceFile,e.notes].map(v=>'"'+(v+'').replace(/"/g,'""')+'"').join(','));
+    download('income_'+dateStr()+'.csv','text/csv',[hdr.join(','),...rows].join('\n'));
+    toast('CSV downloaded!');
+  }
 }
 
 function copyTSV() {
-  if (!entries.length) { toast('No entries to export', true); return; }
-  const hdr = ['Date','Vendor','Description','Category','Amount','Currency','Payment Method','Tax Deductible','Receipt Attached','Receipt File','Project','Notes'];
-  const rows = entries.map(e => [e.date,e.vendor,e.desc,e.category,e.amount,e.currency,e.paymentMethod,e.taxDeductible,e.receiptAttached,e.receiptFile,e.project,e.notes].join('\t'));
-  navigator.clipboard.writeText([hdr.join('\t'),...rows].join('\n'))
-    .then(()=>toast('Copied! Open Excel → cell A5 → Paste'))
-    .catch(()=>toast('Copy failed — try Download CSV instead', true));
+  if (currentMode === 'expense') {
+    if (!entries.length) { toast('No entries to export', true); return; }
+    const hdr = ['Date','Vendor','Description','Category','Amount','Currency','Payment Method','Tax Deductible','Receipt Attached','Receipt File','Project','Notes'];
+    const rows = entries.map(e => [e.date,e.vendor,e.desc,e.category,e.amount,e.currency,e.paymentMethod,e.taxDeductible,e.receiptAttached,e.receiptFile,e.project,e.notes].join('\t'));
+    navigator.clipboard.writeText([hdr.join('\t'),...rows].join('\n'))
+      .then(()=>toast('Copied! Open Expense Log → row 4 → Paste'))
+      .catch(()=>toast('Copy failed — try Download CSV instead', true));
+  } else {
+    if (!incomeEntries.length) { toast('No invoices to export', true); return; }
+    const hdr = ['Date','Client','Invoice #','Amount','Currency','Status','Invoice Attached','Invoice File','Notes'];
+    const rows = incomeEntries.map(e => [e.date,e.client,e.invoiceNumber,e.amount,e.currency,e.status,e.invoiceAttached,e.invoiceFile,e.notes].join('\t'));
+    navigator.clipboard.writeText([hdr.join('\t'),...rows].join('\n'))
+      .then(()=>toast('Copied! Open Income Log → row 4 → Paste'))
+      .catch(()=>toast('Copy failed — try Download CSV instead', true));
+  }
 }
 
 function exportJSON() {
-  if (!entries.length) { toast('No entries to export', true); return; }
-  download('expenses_backup_'+dateStr()+'.json','application/json',JSON.stringify(entries,null,2));
+  if (currentMode === 'expense') {
+    if (!entries.length) { toast('No entries to export', true); return; }
+    download('expenses_backup_'+dateStr()+'.json','application/json',JSON.stringify(entries,null,2));
+  } else {
+    if (!incomeEntries.length) { toast('No invoices to export', true); return; }
+    download('income_backup_'+dateStr()+'.json','application/json',JSON.stringify(incomeEntries,null,2));
+  }
   toast('Backup downloaded!');
 }
 
@@ -989,13 +1385,21 @@ function handleImport(input) {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data)) throw new Error();
-      if (!confirm(`Import ${data.length} entries? This will ADD to your existing ${entries.length} entries.`)) return;
-      const existingIds = new Set(entries.map(e=>e.id));
-      const newEntries = data.filter(e=>!existingIds.has(e.id));
-      entries = [...entries, ...newEntries].sort((a,b)=>b.id-a.id);
-      save();
+      if (currentMode === 'expense') {
+        if (!confirm(`Import ${data.length} entries? This will ADD to your existing ${entries.length} expenses.`)) return;
+        const existingIds = new Set(entries.map(e=>e.id));
+        const newEntries = data.filter(e=>!existingIds.has(e.id));
+        entries = [...entries, ...newEntries].sort((a,b)=>b.id-a.id);
+        save();
+      } else {
+        if (!confirm(`Import ${data.length} entries? This will ADD to your existing ${incomeEntries.length} invoices.`)) return;
+        const existingIds = new Set(incomeEntries.map(e=>e.id));
+        const newEntries = data.filter(e=>!existingIds.has(e.id));
+        incomeEntries = [...incomeEntries, ...newEntries].sort((a,b)=>b.id-a.id);
+        saveIncome();
+      }
       updateHeader();
-      toast(`Imported ${newEntries.length} entries`);
+      toast(`Imported entries`);
     } catch { toast('Invalid backup file', true); }
   };
   r.readAsText(f);
@@ -1004,13 +1408,22 @@ function handleImport(input) {
 
 // ── Helpers ──
 function save() { localStorage.setItem('expenses', JSON.stringify(entries)); }
+function saveIncome() { localStorage.setItem('income', JSON.stringify(incomeEntries)); }
 
 function updateHeader() {
-  document.getElementById('headerBadge').textContent = entries.length;
-  const total = entries.reduce((s,e)=>s+e.amount,0);
-  document.getElementById('headerSub').textContent = entries.length
-    ? `$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} total`
-    : 'Ready to log';
+  if (currentMode === 'expense') {
+    document.getElementById('headerBadge').textContent = entries.length;
+    const total = entries.reduce((s,e)=>s+e.amount,0);
+    document.getElementById('headerSub').textContent = entries.length
+      ? `$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} total`
+      : 'Ready to log';
+  } else {
+    document.getElementById('headerBadge').textContent = incomeEntries.length;
+    const total = incomeEntries.reduce((s,e)=>s+e.amount,0);
+    document.getElementById('headerSub').textContent = incomeEntries.length
+      ? `$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} total`
+      : 'Ready to log';
+  }
 }
 
 function today() { return new Date().toISOString().split('T')[0]; }
