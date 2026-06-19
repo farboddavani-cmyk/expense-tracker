@@ -727,10 +727,13 @@ function switchTab(name) {
 }
 
 // ── File handling ──
+let currentFileObj = null;
+
 function handleFile(input) {
   const f = input.files[0];
   if (!f) return;
   currentFile = f.name;
+  currentFileObj = f;
   document.getElementById('fileChipText').textContent = f.name;
   document.getElementById('fileChip').style.display = 'inline-flex';
   if (f.type.startsWith('image/')) {
@@ -746,10 +749,24 @@ function handleFile(input) {
 
 function clearFile() {
   currentFile = null;
+  currentFileObj = null;
   document.getElementById('fileChip').style.display = 'none';
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('previewImg').src = '';
   document.getElementById('receiptInput').value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // result is "data:image/jpeg;base64,XXXXX" — strip the prefix
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 // ── Save entry ──
@@ -778,21 +795,37 @@ async function saveEntry() {
     notes: document.getElementById('fNotes').value.trim()
   };
 
+  // Capture the file before clearing the form
+  const fileToUpload = currentFileObj;
+
   entries.unshift(entry);
   save();
   clearForm();
   updateHeader();
+
+  // Build payload — include base64 photo if present
+  const payload = { ...entry };
+  if (fileToUpload) {
+    toast('⏳ Uploading receipt photo…');
+    try {
+      payload.receiptImageBase64 = await fileToBase64(fileToUpload);
+      payload.receiptFileName = fileToUpload.name;
+      payload.receiptMimeType = fileToUpload.type || 'image/jpeg';
+    } catch {
+      toast('Photo upload failed — saving without it', true);
+    }
+  }
 
   // Sync to Google Sheets
   toast('⏳ Saving to Google Sheets…');
   try {
     const res = await fetch(SHEET_URL, {
       method: 'POST',
-      body: JSON.stringify(entry)
+      body: JSON.stringify(payload)
     });
     const json = await res.json();
     if (json.status === 'ok') {
-      toast('✓ Saved to Google Sheets!');
+      toast(fileToUpload ? '✓ Saved with receipt photo!' : '✓ Saved to Google Sheets!');
     } else {
       toast('Saved locally — sheet sync failed', true);
     }
@@ -812,16 +845,16 @@ async function syncFromSheet() {
     const sheetEntries = json.rows.map((r, i) => ({
       id: r['Date'] + '_' + i,
       date: r['Date'] || '',
-      vendor: r['Vendor'] || '',
+      vendor: r['Vendor / Payee'] || '',
       desc: r['Description'] || '',
       category: r['Category'] || 'Other',
-      amount: parseFloat(r['Amount']) || 0,
+      amount: parseFloat(r['Amount ($)']) || 0,
       currency: r['Currency'] || 'USD',
       paymentMethod: r['Payment Method'] || '',
-      taxDeductible: r['Tax Deductible'] || '',
+      taxDeductible: r['Tax Deductible?'] || '',
       receiptAttached: r['Receipt Attached'] || 'No',
-      receiptFile: r['Receipt File'] || '',
-      project: r['Project'] || '',
+      receiptFile: r['Receipt File / Link'] || '',
+      project: r['Project / Client'] || '',
       notes: r['Notes'] || ''
     })).filter(e => e.vendor);
 
